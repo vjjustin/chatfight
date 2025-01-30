@@ -83,11 +83,28 @@
             left: 0;
             animation: loading 1.5s infinite;
         }
+		
         @keyframes loading {
             0% { left: 0; }
             50% { left: 50%; }
             100% { left: 100%; }
         }
+		.loader {
+			display: none;
+			width: 30px;
+			height: 30px;
+			border: 4px solid #f3f3f3;
+			border-top: 4px solid #3498db;
+			border-radius: 50%;
+			animation: spin 1s linear infinite;
+			margin: 10px auto;
+		}
+
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+
     </style>
 </head>
 <body>
@@ -120,54 +137,54 @@
         
         <div class="response-container" id="response-container" style="display: none;">
             <div class="model-response">
-                <h3>Llama 3.3-70b</h3>
-                <div class="response-content" id="llama-response"></div>
-            </div>
-            <div class="model-response">
-                <h3>DeepSeek R1</h3>
-                <div class="response-content" id="deepseek-response"></div>
-            </div>
+				<h3>Llama 3.3-70b</h3>
+				<div class="loader" id="llama-loader"></div>
+				<div class="response-content" id="llama-response"></div>
+			</div>
+			<div class="model-response">
+				<h3>DeepSeek R1</h3>
+				<div class="loader" id="deepseek-loader"></div>
+				<div class="response-content" id="deepseek-response"></div>
+			</div>
         </div>
     </div>
 
     <script>
         document.getElementById('chat-form').addEventListener('submit', function(event) {
-            event.preventDefault();
-            
-            // Show the progress bar
-            document.getElementById('progress-bar').style.display = 'block';
-            
-            const formData = new FormData(this);
-            const data = {
-                query: formData.get('query'),
-                length: formData.get('length')
-            };
-            
-            fetch('/submit', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update the response containers
-                document.getElementById('llama-response').innerHTML = data.llama_response;
-                document.getElementById('deepseek-response').innerHTML = data.deepseek_response;
-                
-                // Show the response container
-                document.getElementById('response-container').style.display = 'flex';
-                
-                // Hide the progress bar
-                document.getElementById('progress-bar').style.display = 'none';
-            })
-            .catch((error) => {
-                console.error('Error:', error);
-                // Hide the progress bar
-                document.getElementById('progress-bar').style.display = 'none';
-            });
-        });
+			event.preventDefault();
+			
+			document.getElementById('progress-bar').style.display = 'block';
+			document.getElementById('llama-response').innerHTML = '';
+			document.getElementById('deepseek-response').innerHTML = '';
+			
+			document.getElementById('llama-loader').style.display = 'block';
+			document.getElementById('deepseek-loader').style.display = 'block';
+
+			const formData = new FormData(this);
+			const data = { query: formData.get('query'), length: formData.get('length') };
+
+			fetch('/submit', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(data),
+			})
+			.then(response => response.json())
+			.then(data => {
+				document.getElementById('llama-response').innerHTML = data.llama_response;
+				document.getElementById('deepseek-response').innerHTML = data.deepseek_response;
+
+				document.getElementById('llama-loader').style.display = 'none';
+				document.getElementById('deepseek-loader').style.display = 'none';
+				
+				document.getElementById('response-container').style.display = 'flex';
+				document.getElementById('progress-bar').style.display = 'none';
+			})
+			.catch(error => {
+				console.error('Error:', error);
+				document.getElementById('llama-loader').style.display = 'none';
+				document.getElementById('deepseek-loader').style.display = 'none';
+			});
+		});
     </script>
 </body>
 </html>

@@ -17,8 +17,8 @@ def get_response(model_name, query, max_tokens):
             openai_api_base="https://api.groq.com/openai/v1",
             openai_api_key=os.getenv("GROQ_API_KEY"),
             temperature=0.7,
-            max_tokens=512,  # Set during initialization
-            max_completion_tokens=512
+            #max_tokens=512,  # Set during initialization
+            #max_completion_tokens=512
         )
         response = model.invoke(query).content
         return markdown.markdown(response)
@@ -27,6 +27,7 @@ def get_response(model_name, query, max_tokens):
         
 
 def extract_and_fix_think_content(response_str):
+    print("response_str:", response_str)
     try:
         parts = response_str.split("</think>", 1)  # Split at first </think>
 
@@ -42,17 +43,28 @@ def extract_and_fix_think_content(response_str):
 
             # Wrap in <think> tags
             fixed_think_content = f"<think>{think_content}</think>"
-            print("fixed_think_content:", fixed_think_content)
+            #print("fixed_think_content:", fixed_think_content)
 
             # Combine with answer
             final_response = fixed_think_content + "\n" + answer_content
         else:
+            if response_str.startswith("<p><think>"):
+                response_str = response_str.replace("<p><think>", "<think>", 1)  # Remove <p> after <think>
+            response_str = response_str.rstrip() + "</think>"  # Ensure it ends with </think>
             final_response = response_str
 
+        #print("final_response:", final_response)
         return final_response
 
     except Exception as e:
         return f"Error processing response: {str(e)}"
+        
+def async_get_response(model_name, query, max_tokens, result_dict, key):
+    try:
+        response = get_response(model_name, query, max_tokens)
+        result_dict[key] = response
+    except Exception as e:
+        result_dict[key] = f"Error: {str(e)}"
 
         
 @app.route('/', methods=['GET'])
@@ -64,30 +76,29 @@ def home():
 
 @app.route('/submit', methods=['POST'])
 def submit():
-    # Handle form submission via AJAX
     data = request.json
     query = data['query']
     length = data['length']
+
+    token_mapping = {'vshort': 100, 'short': 250, 'medium': 500, 'long': 1000}
+    max_tokens = token_mapping.get(length, 250)
     
-    # Map length selection to token count
-    token_mapping = {
-        'vshort': 128,
-        'short': 256,
-        'medium': 512,
-        'long': 1024
-    }
-    max_tokens = token_mapping.get(length, 512)
+    strict_query = f"{query}. Maximum {max_tokens} words in response."
+    results = {"llama_response": "", "deepseek_response": ""}
+
+    threads = [
+        threading.Thread(target=async_get_response, args=("llama-3.3-70b-versatile", strict_query, max_tokens, results, "llama_response")),
+        threading.Thread(target=async_get_response, args=("deepseek-r1-distill-llama-70b", strict_query, max_tokens, results, "deepseek_response"))
+    ]
+
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    results["deepseek_response"] = extract_and_fix_think_content(results["deepseek_response"])
     
-    strict_query = f"{query}. {max_tokens} words maximum."
-    
-    llama_response = get_response("llama-3.3-70b-versatile", strict_query, max_tokens)
-    deepseek_response = get_response("deepseek-r1-distill-llama-70b", strict_query, max_tokens)
-    deepseek_response = extract_and_fix_think_content(deepseek_response)
-    
-    return jsonify({
-        'llama_response': llama_response,
-        'deepseek_response': deepseek_response
-    })
+    return jsonify(results)
 
         
 if __name__ == '__main__':
