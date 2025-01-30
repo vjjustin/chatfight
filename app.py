@@ -4,7 +4,6 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os, re
 import markdown
-from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 load_dotenv()
@@ -59,6 +58,7 @@ def extract_and_fix_think_content(response_str):
 @app.route('/', methods=['GET'])
 def home():
     # Render the initial page
+    return render_template('index.html', selected_length='medium')
     return render_template('index.html', selected_length='medium')
     
 
